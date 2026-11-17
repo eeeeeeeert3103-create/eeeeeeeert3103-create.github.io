@@ -197,6 +197,27 @@ async function renderHome() {
     <div class="section-head"><h2>Салоны во Владимире</h2><span class="small muted">${esc(c.hours)} · ${esc(c.phone)}</span></div>
     <div class="grid-2">${branches.slice(0, 6).map(branchCard).join("")}</div>
     <div class="hint" style="margin-top:10px">Ещё ${branches.length - 6} адресов — при записи покажем все.</div>
+
+    <div class="section-head" style="margin-top:34px"><h2>Мастера, о которых пишут</h2>
+      <span class="small muted">по открытым отзывам на Zoon и Яндекс Картах</span></div>
+    <div class="grid-3">
+      <div class="card card-pad">
+        <div class="eyebrow" style="margin-bottom:6px">Елена</div>
+        <p class="small" style="margin:0 0 8px">«По скрину из TikTok воплотила идею сына: и он, и мама в восторге».</p>
+        <div class="tiny muted">гостья сети, Zoon, май 2026</div>
+      </div>
+      <div class="card card-pad">
+        <div class="eyebrow" style="margin-bottom:6px">Татьяна</div>
+        <p class="small" style="margin:0 0 8px">«Мужские стрижки топ, и длинные волосы стрижёт отлично».</p>
+        <div class="tiny muted">гостья сети, Яндекс Карты, 2025</div>
+      </div>
+      <div class="card card-pad">
+        <div class="eyebrow" style="margin-bottom:6px">Елена и Татьяна</div>
+        <p class="small" style="margin:0 0 8px">«Вежливые сотрудники, приятная атмосфера, удобное расположение».</p>
+        <div class="tiny muted">гостья сети, Zoon, 2026</div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:10px">Цитаты из открытых отзывов, профили мастеров в демо вымышлены: персональные данные сотрудников не публикуем.</p>
   `;
 }
 
@@ -247,6 +268,9 @@ function startWizard(opts = {}) {
     date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     time: "12:00",
     mode: "booking",
+    ai: null,
+    aiLoading: false,
+    aiError: null,
     category: "Стрижки",
     search: "",
     q: { face: "", hair: "", density: "", texture: "", length_now: "", styling_time: "15",
@@ -382,12 +406,62 @@ function stepService() {
         ${w.self ? `<div class="photo"><img src="${w.self}" alt=""><span class="photo-tag">вы</span><button class="photo-del" data-action="remove-self">×</button></div>` : ""}
         ${w.refs.map((r, i) => `<div class="photo"><img src="${r}" alt=""><span class="photo-tag">реф</span><button class="photo-del" data-action="remove-ref" data-i="${i}">×</button></div>`).join("")}
       </div>
+      ${w.aiLoading ? `<div class="card card-pad" style="margin-top:14px;background:var(--copper-soft)">
+          <div class="row" style="gap:10px"><span class="pill pill-in_work">${ICONS.spark} ИИ смотрит фото…</span>
+          <span class="tiny muted">локальная модель считает форму лица и тип волос</span></div></div>` : ""}
+      ${w.ai ? visionBlock(w.ai) : ""}
+      ${w.aiError ? `<p class="hint" style="margin-top:10px">${esc(w.aiError)}</p>` : ""}
+
       <label class="field" style="margin-top:16px"><span class="label">Пожелания</span>
         <textarea class="textarea" data-field="wishes" placeholder="Например: хочу короче виски, но чёлку не трогать">${esc(w.wishes)}</textarea></label>
     ` : ""}
 
     ${stepNav(false)}
   `;
+}
+
+function visionBlock(a) {
+  const d = a.data || {};
+  const chip = (label, value) => value
+    ? `<span class="tag">${esc(label)}: ${esc(value)}</span>` : "";
+  const map = {
+    face: state.meta.face, hair: state.meta.hair, density: state.meta.density, length: state.meta.length,
+  };
+  const chips = [
+    chip("Лицо", map.face[d.face]),
+    chip("Волосы", map.hair[d.hair]),
+    chip("Густота", map.density[d.density]),
+    chip("Длина", map.length[d.length]),
+  ].filter(Boolean).join("");
+  return `
+    <div class="card card-pad" style="margin-top:14px">
+      <div class="row between" style="margin-bottom:8px">
+        <div class="row" style="gap:8px">${ICONS.spark}<b>ИИ посмотрел фото</b>
+          <span class="tiny muted">${esc(a.model || "")} · уверенность ${Math.round((a.confidence || 0) * 100)}%</span></div>
+        <button class="btn btn-ghost btn-xs" data-action="dismiss-ai">Скрыть</button>
+      </div>
+      <div class="row" style="gap:6px">${chips || '<span class="tiny muted">модель не разобрала детали</span>'}</div>
+      ${d.notes ? `<p class="tiny muted" style="margin:10px 0 0">${esc(d.notes)}</p>` : ""}
+      ${chips ? `<button class="btn btn-soft btn-sm" style="margin-top:12px" data-action="apply-ai">Применить к анкете</button>` : ""}
+      <p class="hint" style="margin-top:8px">Это подсказка, мастер всё равно проверит фото.</p>
+    </div>`;
+}
+
+async function runVision(dataUrl) {
+  if (!state.meta.vision) return;
+  wizard.aiLoading = true;
+  wizard.aiError = null;
+  wizard.ai = null;
+  renderStep();
+  try {
+    const res = await api("/api/vision", { method: "POST", body: { image: dataUrl } });
+    if (res.ok) wizard.ai = res;
+    else wizard.aiError = res.error || "ИИ недоступен";
+  } catch (err) {
+    wizard.aiError = "ИИ недоступен: " + err.message;
+  }
+  wizard.aiLoading = false;
+  renderStep();
 }
 
 function stepQuestionnaire() {
@@ -497,6 +571,7 @@ async function submitWizard(btn) {
       wishes: w.wishes,
       appointment_at: `${w.date}T${w.time}:00`,
       questionnaire: w.q,
+      ai: w.ai ? { model: w.ai.model, confidence: w.ai.confidence, data: w.ai.data, notes: (w.ai.data || {}).notes } : null,
       photos: [{ kind: "self", data: w.self }, ...w.refs.map((r) => ({ kind: "ref", data: r }))].filter((p) => p.data),
     };
     const created = await api("/api/requests", { method: "POST", body: payload });
@@ -730,6 +805,16 @@ document.addEventListener("click", async (e) => {
     if (action === "remove-self") { wizard.self = null; renderStep(); return; }
     if (action === "reupload-self") { wizard.self = null; renderStep(); setTimeout(() => $('[data-upload="self"]') && $('[data-upload="self"]').click(), 30); return; }
     if (action === "remove-ref") { wizard.refs.splice(Number(el.dataset.i), 1); renderStep(); return; }
+    if (action === "dismiss-ai") { wizard.ai = null; renderStep(); return; }
+    if (action === "apply-ai") {
+      const d = (wizard.ai && wizard.ai.data) || {};
+      ["face", "hair", "density", "length"].forEach((k) => {
+        if (d[k] && state.meta[k === "length" ? "length" : k]) wizard.q[k === "length" ? "length_now" : k] = d[k];
+      });
+      toast("Подставил ответы ИИ, проверьте анкету");
+      renderStep();
+      return;
+    }
     if (action === "submit") { return submitWizard(el); }
     if (action === "preview") {
       el.disabled = true;
@@ -801,7 +886,13 @@ document.addEventListener("change", async (e) => {
     if (!file.type.startsWith("image/")) return toast("Нужно изображение", true);
     try {
       const data = await compressImage(file);
-      if (t.dataset.upload === "self") wizard.self = data;
+      if (t.dataset.upload === "self") {
+        wizard.self = data;
+        t.value = "";
+        renderStep();
+        runVision(data);
+        return;
+      }
       else {
         if (wizard.refs.length >= 2) { t.value = ""; return toast("Максимум 2 референса", true); }
         wizard.refs.push(data);
