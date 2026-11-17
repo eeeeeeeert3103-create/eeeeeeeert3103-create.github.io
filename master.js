@@ -146,7 +146,7 @@ async function renderQueue() {
         <label class="row" style="gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
           <input type="checkbox" id="only-mine" ${state.onlyMine ? "checked" : ""}> только мои
         </label>
-        <a class="btn btn-ghost btn-sm" href="/client">Кабинет клиента</a>
+        <a class="btn btn-ghost btn-sm" href="./client.html">Кабинет клиента</a>
       </div>
     </div>
 

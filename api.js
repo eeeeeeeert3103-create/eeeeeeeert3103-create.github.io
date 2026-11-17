@@ -286,7 +286,7 @@ function renderAnalysis(a, { compact = false } = {}) {
   `;
 }
 
-function photoUrl(f) { return `/uploads/${encodeURIComponent(f)}`; }
+function photoUrl(f) { return `./uploads/${encodeURIComponent(f)}`; }
 
 window.G = {
   $, $$, esc, plural, money, api, toast, lightbox, modal, askPrice, askReview,
