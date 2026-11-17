@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ЧИО ЧИО Владимир — запись и разбор стрижки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="/">
+      <span class="brand-mark">Ч</span>
+      <span>
+        <span class="brand-name">ЧИО ЧИО</span><br>
+        <span class="brand-sub">Владимир · демо</span>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/" class="active">Клиентам</a>
+      <a href="/master.html">Мастерам</a>
+      <a href="#how">Как работает</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">сеть японских парикмахерских · Владимир</div>
+        <h1>Стрижка, которую <em>видно</em> до записи</h1>
+        <p class="lead">10 салонов во Владимире, 47 услуг по прайсу сети. Клиент выбирает салон,
+          услугу и мастера, прикладывает фото и референс, а мастер получает разбор: что подойдёт,
+          почему нет, как стричь по зонам и чем укладывать. Можно записаться заранее или взять
+          талон живой очереди.</p>
+        <div class="row" style="margin-top:26px">
+          <a class="btn btn-primary" href="/client.html">Я клиент</a>
+          <a class="btn btn-ghost" href="/master.html">Я мастер</a>
+        </div>
+        <p class="tiny muted" style="margin-top:18px">Демо на реальном прайсе и адресах сети. Заявки, талоны
+          и фото сохраняются в SQLite и остаются после перезагрузки.</p>
+      </div>
+      <figure class="hero-figure" style="margin:0">
+        <img src="/img/hero_salon.jpg" alt="Зал барбершопа">
+        <figcaption class="hero-caption"><span>ЧИО ЧИО · Владимир</span><span>10 салонов · 20 мастеров</span></figcaption>
+      </figure>
+    </div>
+
+    <div class="role-grid" style="margin-top:44px">
+      <a class="role-card" href="/client.html">
+        <span class="num">01 · КЛИЕНТ</span>
+        <h3>Записаться или взять талон</h3>
+        <p>Салон, услуга из прайса, фото и референс. Для стрижки — разбор от мастера,
+          для остальных услуг — просто запись на время.</p>
+        <span class="go">Открыть клиентское приложение →</span>
+      </a>
+      <a class="role-card" href="/master.html">
+        <span class="num">02 · МАСТЕР</span>
+        <h3>Рабочее место мастера</h3>
+        <p>Очередь заявок и живая очередь салона, фото клиента с референсом, разбор по зонам,
+          запись, оплата и отзывы в одном экране.</p>
+        <span class="go">Открыть рабочее место мастера →</span>
+      </a>
+    </div>
+
+    <div class="feature-row" id="how">
+      <div class="feature">
+        <div class="idx">01</div>
+        <h4>Фото и референс</h4>
+        <p>Клиент загружает себя и пример стрижки. Фото сжимаются в браузере и лежат на диске,
+          а не в облаке.</p>
+      </div>
+      <div class="feature">
+        <div class="idx">02</div>
+        <h4>Разбор по правилам</h4>
+        <p>Каталог из 20 стрижек с экспертной оценкой: форма лица, тип и густота волос, бюджет,
+          время на укладку. На выходе — пошаговая техника, насадки и риски.</p>
+      </div>
+      <div class="feature">
+        <div class="idx">03</div>
+        <h4>От заявки до отзыва</h4>
+        <p>Статусы, история событий, перенос времени, оплата и оценка после услуги. Всё сохраняется
+          в базе.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap row between">
+    <span>ЧИО ЧИО · демоверсия записи для сети во Владимире. Python + SQLite.</span>
+    <span>Локально: <span class="mono">barber.db</span></span>
+  </div>
+</footer>
+
+</body>
+</html>
