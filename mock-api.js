@@ -35,6 +35,7 @@
       branches: s.branches.slice(),
       requests,
       tickets: clone(s.tickets),
+      notifications: clone(s.notifications || []),
       ids: {
         client: Math.max(0, ...s.clients.map((c) => c.id)),
         request: Math.max(0, ...s.requests.map((r) => r.id)),
@@ -82,6 +83,31 @@
   const ok = (data, status = 200) => reply(status, data);
   const fail = (code, message) => reply(code, { error: message });
 
+  function aiSettings() {
+    try { return JSON.parse(localStorage.getItem("chio_ai") || "null"); } catch (e) { return null; }
+  }
+
+  function weekday(day) {
+    const d = new Date(day + "T00:00:00");
+    return Number.isNaN(d.getTime()) ? -1 : (d.getDay() + 6) % 7;
+  }
+
+  function slotsFor(masterId, day) {
+    const hours = SEED.master_hours.find((h) => h.master_id === Number(masterId) && h.weekday === weekday(day));
+    if (!hours) return [];
+    const busy = new Set(db.requests
+      .filter((r) => r.master_id === Number(masterId) && r.appointment_at && r.appointment_at.startsWith(day)
+        && !["declined", "done"].includes(r.status))
+      .map((r) => r.appointment_at.slice(11, 16)));
+    const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    const out = [];
+    for (let m = toMin(hours.starts_at); m + 30 <= toMin(hours.ends_at); m += 30) {
+      const label = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+      if (!busy.has(label)) out.push(label);
+    }
+    return out;
+  }
+
   async function handle(path, method, query, body) {
     const S = store();
 
@@ -95,6 +121,7 @@
         services: SEED.services, service_categories: SEED.service_categories,
         styles: SEED.styles_catalog, face: SEED.face, hair: SEED.hair, density: SEED.density,
         texture: SEED.texture, length: SEED.length, styling: SEED.styling, statuses: LABELS,
+        vision: !!aiSettings(),
       });
     }
 
@@ -214,6 +241,73 @@
       event(r, "review", "Клиент оставил отзыв");
       save();
       return ok(full(r));
+    }
+
+    if (path === "/api/slots" && method === "GET") {
+      const masterId = query.get("master_id");
+      const day = query.get("date") || "";
+      if (!masterId || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return fail(400, "Нужны master_id и date");
+      return ok({ master_id: Number(masterId), date: day, slots: slotsFor(masterId, day) });
+    }
+
+    if (path === "/api/notifications" && method === "GET") {
+      return ok({ notifications: S.notifications.map((n) => {
+        const r = S.requests.find((x) => x.id === n.request_id) || {};
+        return Object.assign({}, n, {
+          client_name: (S.clients.find((c) => c.id === r.client_id) || {}).name || "",
+          service_name: r.service_name || "",
+        });
+      }) });
+    }
+
+    let nm = path.match(/^\/api\/notifications\/(\d+)\/send$/);
+    if (nm && method === "POST") {
+      const n = S.notifications.find((x) => x.id === Number(nm[1]));
+      if (!n) return fail(404, "Уведомление не найдено");
+      n.status = "sent";
+      n.sent_at = nowIso();
+      save();
+      return ok(n);
+    }
+
+    if (path === "/api/vision" && method === "POST") {
+      const cfg = aiSettings();
+      if (!cfg || !cfg.key) return ok({ ok: false, error: "ИИ не настроен: добавьте ключ в настройках" });
+      const image = body && body.image;
+      if (!image || !String(image).startsWith("data:image/")) return fail(400, "Ожидается изображение");
+      const prompt = "You are a barber assistant. Look at the portrait and answer only with JSON: " +
+        '{"face":"oval|round|square|long|heart","hair":"straight|wavy|curly","density":"thin|medium|thick","length":"short|medium|long","notes":"one short sentence"}';
+      try {
+        const res = await fetch((cfg.url || "https://api.openai.com/v1").replace(/\/$/, "") + "/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + cfg.key },
+          body: JSON.stringify({
+            model: cfg.model || "gpt-4o-mini",
+            temperature: 0.2,
+            messages: [{ role: "user", content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: image } },
+            ] }],
+          }),
+        });
+        if (!res.ok) return ok({ ok: false, error: "Провайдер ответил " + res.status });
+        const payload = await res.json();
+        const text = payload.choices && payload.choices[0] && payload.choices[0].message.content || "";
+        const start = text.indexOf("{"), end = text.lastIndexOf("}");
+        const parsed = start >= 0 && end > start ? JSON.parse(text.slice(start, end + 1)) : {};
+        const norm = (v, allowed) => allowed.includes(String(v || "").toLowerCase()) ? String(v).toLowerCase() : null;
+        const data = {
+          face: norm(parsed.face, ["oval", "round", "square", "long", "heart"]),
+          hair: norm(parsed.hair, ["straight", "wavy", "curly"]),
+          density: norm(parsed.density, ["thin", "medium", "thick"]),
+          length: norm(parsed.length, ["short", "medium", "long"]),
+          notes: String(parsed.notes || "").slice(0, 300),
+        };
+        const found = ["face", "hair", "density", "length"].filter((k) => data[k]).length;
+        return ok({ ok: true, model: cfg.model || "gpt-4o-mini", data, confidence: found / 4, raw: text, ms: 0 });
+      } catch (err) {
+        return ok({ ok: false, error: "Запрос к провайдеру не прошёл: " + err.message });
+      }
     }
 
     if (path === "/api/tickets" && method === "GET") {

@@ -267,6 +267,7 @@ function startWizard(opts = {}) {
     masterId: null,
     date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     time: "12:00",
+    slots: [],
     mode: "booking",
     ai: null,
     aiLoading: false,
@@ -492,11 +493,22 @@ function stepQuestionnaire() {
   `;
 }
 
+async function refreshSlots() {
+  if (!wizard || !wizard.masterId) { if (wizard) wizard.slots = []; return; }
+  try {
+    const result = await api(`/api/slots?master_id=${wizard.masterId}&date=${encodeURIComponent(wizard.date)}`);
+    wizard.slots = result.slots;
+  } catch (err) {
+    wizard.slots = [];
+    toast(err.message, true);
+  }
+}
+
 function stepMaster() {
   const w = wizard;
   const svc = selectedService();
   const masters = state.meta.masters.filter((m) => !w.branchId || m.branch_id === w.branchId);
-  const times = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+  const slots = w.slots || [];
   return `
     <h2>Мастер и время</h2>
     <p class="lead">${w.mode === "queue" ? "Возьмите талон и приходите — вас примут в порядке очереди." : "Выберите мастера и удобное время, он подтвердит запись."}</p>
@@ -510,8 +522,6 @@ function stepMaster() {
       <div class="grid-2" style="margin-bottom:16px">
         <label class="field"><span class="label">Дата</span>
           <input class="input" type="date" data-field="date" value="${esc(w.date)}" min="${new Date().toISOString().slice(0, 10)}"></label>
-        <label class="field"><span class="label">Время</span>
-          <select class="select" data-field="time">${times.map((t) => `<option ${w.time === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
       </div>
     ` : ""}
 
@@ -525,6 +535,12 @@ function stepMaster() {
           <span class="tl" style="display:block;margin-top:8px">${esc(m.bio)}</span>
         </button>`).join("")}
     </div>
+
+    ${w.mode === "booking" ? `<hr class="hairline"><h4>Свободное время</h4>
+      ${w.masterId ? (slots.length
+        ? `<div class="row" style="gap:8px;flex-wrap:wrap">${slots.map((t) => `<button class="tab ${w.time === t ? "active" : ""}" data-slot="${t}">${t}</button>`).join("")}</div>`
+        : '<p class="hint">На эту дату свободных окон нет.</p>')
+        : '<p class="hint">Выберите мастера, чтобы увидеть его расписание.</p>'}` : ""}
 
     ${w.mode === "booking" && !w.masterId ? '<p class="hint" style="margin-top:12px">Можно не выбирать: заявку возьмёт свободный мастер салона.</p>' : ""}
 
@@ -546,6 +562,7 @@ function validateStep() {
     if (needsStyle() && !w.self) return "Добавьте фото себя";
   }
   if (w.step === 3 && (!w.q.face || !w.q.hair || !w.q.density)) return "Заполните форму лица, тип и густоту волос";
+  if (w.step === 4 && w.mode === "booking" && (!w.masterId || !w.time)) return "Выберите мастера и свободное время";
   return null;
 }
 
@@ -875,7 +892,9 @@ document.addEventListener("click", async (e) => {
   }
 
   const m = e.target.closest("[data-master]");
-  if (m) { wizard.masterId = Number(m.dataset.master); renderStep(); return; }
+  if (m) { wizard.masterId = Number(m.dataset.master); wizard.time = ""; await refreshSlots(); renderStep(); return; }
+  const slot = e.target.closest("[data-slot]");
+  if (slot) { wizard.time = slot.dataset.slot; renderStep(); return; }
 });
 
 document.addEventListener("change", async (e) => {
@@ -905,7 +924,7 @@ document.addEventListener("change", async (e) => {
   if (t.dataset.q) { wizard.q[t.dataset.q] = t.value; return; }
   if (t.dataset.field) {
     wizard[t.dataset.field] = t.value;
-    if (t.dataset.field === "date" || t.dataset.field === "time") renderStep();
+    if (t.dataset.field === "date") { wizard.time = ""; await refreshSlots(); renderStep(); }
     return;
   }
 });

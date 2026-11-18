@@ -146,7 +146,7 @@ async function renderQueue() {
         <label class="row" style="gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
           <input type="checkbox" id="only-mine" ${state.onlyMine ? "checked" : ""}> только мои
         </label>
-        <a class="btn btn-ghost btn-sm" href="./client.html">Кабинет клиента</a>
+        <a class="btn btn-ghost btn-sm" href="/client">Кабинет клиента</a>
       </div>
     </div>
 
@@ -263,6 +263,7 @@ async function renderDetail(id) {
           ${r.wishes ? `<p class="small" style="margin:16px 0 0"><span class="muted">Пожелания:</span> ${esc(r.wishes)}</p>` : ""}
         </div>
 
+        ${r.ai ? aiCard(r.ai) : ""}
         ${analysisSection(r)}
       </div>
 
@@ -285,6 +286,26 @@ function suggestTime() {
   d.setHours(12, 0, 0, 0);
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function aiCard(ai) {
+  const d = ai.data || {};
+  const chip = (label, value) => value ? `<span class="tag">${esc(label)}: ${esc(value)}</span>` : "";
+  const face = state.meta.face[d.face], hair = state.meta.hair[d.hair];
+  const dens = state.meta.density[d.density], len = state.meta.length[d.length];
+  return `
+    <div class="card card-pad" style="background:var(--copper-soft);border-color:#e7cbb2">
+      <div class="row between" style="margin-bottom:8px">
+        <div class="row" style="gap:8px">${ICONS.spark}<b>ИИ посмотрел фото</b>
+          <span class="tiny muted">${esc(ai.model || "")} · уверенность ${Math.round((ai.confidence || 0) * 100)}%</span></div>
+      </div>
+      <div class="row" style="gap:6px">
+        ${chip("Лицо", face)}${chip("Волосы", hair)}${chip("Густота", dens)}${chip("Длина", len)}
+        ${face || hair ? "" : '<span class="tiny muted">модель не разобрала детали, смотрите фото сами</span>'}
+      </div>
+      ${d.notes ? `<p class="small" style="margin:10px 0 0">${esc(d.notes)}</p>` : ""}
+      <p class="tiny muted" style="margin:8px 0 0">Предварительная оценка, решение за мастером.</p>
+    </div>`;
 }
 
 function analysisSection(r) {
