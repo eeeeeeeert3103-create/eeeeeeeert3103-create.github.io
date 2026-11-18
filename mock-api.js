@@ -121,7 +121,7 @@
         services: SEED.services, service_categories: SEED.service_categories,
         styles: SEED.styles_catalog, face: SEED.face, hair: SEED.hair, density: SEED.density,
         texture: SEED.texture, length: SEED.length, styling: SEED.styling, statuses: LABELS,
-        vision: !!aiSettings(),
+        vision: true,
       });
     }
 
@@ -272,7 +272,19 @@
 
     if (path === "/api/vision" && method === "POST") {
       const cfg = aiSettings();
-      if (!cfg || !cfg.key) return ok({ ok: false, error: "ИИ не настроен: добавьте ключ в настройках" });
+      if (!cfg || !cfg.key) {
+        try {
+          await import("./face-ai.js");
+          if (window.LocalFace) {
+            const local = await window.LocalFace.analyze(body.image);
+            if (local && local.ok) return ok(local);
+            return ok({ ok: false, error: (local && local.error) || "Лицо не распознано" });
+          }
+        } catch (err) {
+          return ok({ ok: false, error: "Локальная модель не загрузилась: " + err.message });
+        }
+        return ok({ ok: false, error: "ИИ не настроен: добавьте ключ в настройках" });
+      }
       const image = body && body.image;
       if (!image || !String(image).startsWith("data:image/")) return fail(400, "Ожидается изображение");
       const prompt = "You are a barber assistant. Look at the portrait and answer only with JSON: " +
